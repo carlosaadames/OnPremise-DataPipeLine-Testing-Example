@@ -7,7 +7,7 @@ python main.py --ticker NVDA --period max --interval 1d
 ```
 ---
 ## Changes for production:
-To elevate your local PySpark and Airflow setup into a portfolio piece that mirrors a production pipeline, you can seamlessly map your current logic to Google Cloud Platform (GCP). In 2026, Google Cloud's Always Free tier provides enough resources to build this exact architecture at zero cost. This demonstrations will be in another repository, `GCP-DataPipeLine`.
+To elevate your local PySpark and Airflow setup into a portfolio piece that mirrors a production pipeline, you can seamlessly map your current logic to any cloud platform. In 2026, Google Cloud's Always Free tier provides enough resources to build this exact architecture at zero cost. This demonstrations will be in another repository, `GCP-DataPipeLine`.
 
 ## I. The 0-Cost GCP Engine (Replacing Local Infrastructure)
 
