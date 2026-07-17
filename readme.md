@@ -1,5 +1,5 @@
 # Usage:
-This proof of concept focuses on usage of airflow v.3.x on premise to orchestrate a pyspark data pipeline. Before running, populate your settings in `dags\config.py`. The intent is for on premise testing before moving to a prodiction environment.
+This proof of concept focuses on usage of airflow v.3.x on premise to orchestrate a pyspark data pipeline. Before running, populate your settings in `dags\config.py`. The intent is for on premise testing before moving to a production environment.
 
 ## CLI Execution:
 ```bash
