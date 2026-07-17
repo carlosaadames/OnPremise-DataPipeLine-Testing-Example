@@ -1,0 +1,6 @@
+apache-airflow
+pyspark
+yfinance
+sqlite3
+delta-spark
+graphviz
