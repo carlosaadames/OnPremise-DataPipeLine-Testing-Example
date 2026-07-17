@@ -1,7 +1,6 @@
-apache-airflow
-pyspark
-yfinance
-sqlite3
-delta-spark
-graphviz
-pyarrow
+apache-airflow==3.3.0
+pyspark==4.1.1
+yfinance==1.5.1
+delta_spark==4.3.1
+graphviz==0.21
+pyarrow==25.0.0
