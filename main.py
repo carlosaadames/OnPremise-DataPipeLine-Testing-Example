@@ -66,5 +66,6 @@ def main():
         ["airflow", "dags", "test", "spark_pipeline_orchestrator", "2026-07-16", "--conf", json.dumps(run_conf)],
         env=current_env, check=True
     )
+
 if __name__ == "__main__":
     main()
