@@ -27,7 +27,7 @@ Current PoC relies on local directories and a SQLite database. To make this prod
 --- 
 ## Airflow 3 Concepts — Chapter References
 
-The orchestration patterns in this repo (`config.py`, `pipeline.py`, `orchestrator.py`, `main.py`) line up with *Data Pipelines with Apache Airflow, Second Edition* (Manning) — fully revised for Airflow 3. Use this as a jumping-off point if you want to go deeper on any pattern used here.
+The orchestration patterns in this repo (`config.py`, `pipeline.py`, `orchestrator.py`, `main.py`) lines up with *Data Pipelines with Apache Airflow, Second Edition* (Manning) — fully revised for Airflow 3. Use this as a jumping-off point if you want to go deeper on any pattern used here.
 
 ### Concepts already in use
 
