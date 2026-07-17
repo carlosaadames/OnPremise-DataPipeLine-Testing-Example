@@ -4,3 +4,4 @@ yfinance
 sqlite3
 delta-spark
 graphviz
+pyarrow
