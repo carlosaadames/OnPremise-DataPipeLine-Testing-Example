@@ -1,11 +1,10 @@
 import yfinance as yf
-from config import load_configuration
 from delta import configure_spark_with_delta_pip
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession,Window
 from pyspark.sql.functions import col, avg, stddev, min, max
-from pyspark.sql import Window
 import sqlite3
 import logging
+from config import load_configuration
 logger = logging.getLogger(__name__)
 
 class SparkJob:
@@ -29,6 +28,7 @@ class SparkJob:
             .appName(self.secrets["name"])
             .config("spark.driver.host", self.secrets["host"])
             .config("spark.driver.bindAddress", self.secrets["host"])
+            .config("spark.sql.execution.arrow.pyspark.enabled", self.secrets["pyarrow_for_pandas"])
             .config("spark.network.useNetty", self.secrets["netty"])
             .config("spark.network.netty.kqueue.enabled", self.secrets["kqueue"])
             .config("spark.driver.port", self.secrets["port"])
@@ -61,9 +61,10 @@ class DataPipeLine:
 
     def _data_fetch(self, ticker_symbol: str, period: str = "max", interval: str = "1d"):
         logger.info(f"Fetching data for {ticker_symbol}...")
-        finance_data = yf.download(ticker_symbol, period=period, interval=interval)
+        finance_data = yf.download(tickers=ticker_symbol, period=period, interval=interval)
         finance_data.reset_index(inplace=True)
         finance_data = finance_data.droplevel(level=1, axis=1)
+        finance_data["ticker"] = ticker_symbol
         logger.info(f"Downloaded {len(finance_data)} rows")
         return self._spark.createDataFrame(finance_data)
     
@@ -76,7 +77,7 @@ class DataPipeLine:
                     pandas_df[column] = pandas_df[column].astype(str)
             conn = sqlite3.connect(self._secrets["sqlite_path"])
             try:
-                pandas_df.to_sql(table_name, conn, if_exists="replace", index=False)
+                pandas_df.to_sql(table_name, conn, if_exists="append", index=False)
             finally:
                 conn.close()
             logger.info(f"Wrote {len(pandas_df)} rows to SQLite table '{table_name}'")
@@ -85,28 +86,32 @@ class DataPipeLine:
 
     def _bronze_tier(self, spark_data):
         logger.info(f"Writing to bronze tier: {self._secrets['bronze_path']}")
-        try:
-            spark_data.write.format("delta").mode("append").save(self._secrets["bronze_path"])
-        except Exception as e:
-            logger.warning(f"Append failed: {e}. Overwriting...")
-            spark_data.write.format("delta").mode("overwrite").save(self._secrets["bronze_path"])
+        (spark_data.write
+                .format("delta")
+                .mode("append")
+                .option("mergeSchema", "true")
+                .save(self._secrets["bronze_path"]))
         self._mirror_to_sqlite(spark_data, "bronze")
     
     def _silver_tier(self, spark_data):
         logger.info(f"Writing to silver tier: {self._secrets['silver_path']}")
-        silver_df = spark_data.select(col("Date").alias("trade_date"), col("Close").alias("price"))
-        try:
-            silver_df.write.format("delta").mode("append").save(self._secrets["silver_path"])
-        except Exception as e:
-            logger.warning(f"Append failed: {e}. Overwriting...")
-            silver_df.write.format("delta").mode("overwrite").save(self._secrets["silver_path"])
+        silver_df = spark_data.select(
+            col("ticker"),
+            col("Date").alias("trade_date"), 
+            col("Close").alias("price")
+            )
+        (silver_df.write
+                .format("delta")
+                .mode("append")
+                .option("mergeSchema", "true")
+                .save(self._secrets["silver_path"]))        
         self._mirror_to_sqlite(silver_df, "silver")
         return silver_df
 
     def _gold_tier(self, spark_data):
         logger.info(f"Writing to gold tier: {self._secrets['gold_path']}")
-        window_7d = Window.orderBy("trade_date").rowsBetween(-6, 0)
-        window_30d = Window.orderBy("trade_date").rowsBetween(-29, 0)
+        window_7d = Window.partitionBy("ticker").orderBy("trade_date").rowsBetween(-6, 0)
+        window_30d = Window.partitionBy("ticker").orderBy("trade_date").rowsBetween(-29, 0)
         gold_df = (spark_data
             .withColumn("moving_avg_7d", avg("price").over(window_7d))
             .withColumn("moving_avg_30d", avg("price").over(window_30d))
@@ -114,10 +119,18 @@ class DataPipeLine:
             .withColumn("high_30d", max("price").over(window_30d))
             .withColumn("low_30d", min("price").over(window_30d))
         )
-        try:
-            gold_df.write.format("delta").mode("append").save(self._secrets["gold_path"])
-        except Exception as e:
-            logger.warning(f"Append failed: {e}. Overwriting...")
-            gold_df.write.format("delta").mode("overwrite").save(self._secrets["gold_path"])
+        (gold_df.write
+                .format("delta")
+                .mode("append")
+                .option("mergeSchema", "true")
+                .save(self._secrets["gold_path"]))        
         self._mirror_to_sqlite(gold_df, "gold")
         return gold_df
+
+    def test_pipeline(self, ticker: str):
+            """Orchestration layout showing proper df flow."""
+            raw_data = self._data_fetch(ticker)
+            self._bronze_tier(raw_data)
+            silver_data = self._silver_tier(raw_data)
+            gold_data = self._gold_tier(silver_data)
+            return gold_data
